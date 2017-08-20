@@ -1,6 +1,5 @@
 package lwjglterrain;
 
-import org.joml.Vector3f;
 import static org.lwjgl.glfw.GLFW.*;
 
 public class Actions{
@@ -32,7 +31,7 @@ public class Actions{
     private static double lastx = 0, lasty = 0;
     private static boolean rot = false;
 
-    public static void addCallbacks(Shader s, long win){
+    public static void addCallbacks(Shader s, long win, Camera camera){
         
         
         glfwSetCursorPosCallback(win, (window, mousex, mousey) -> {
@@ -54,13 +53,13 @@ public class Actions{
             if(button == GLFW_MOUSE_BUTTON_1)
                 rot = !rot;
             if(button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS){
-                Camera.targetMesh++;
+                //Camera.targetMesh++;
             }
         });
         
         glfwSetScrollCallback(win, (window, dx, dy) -> {
             //LWJGLtest.camera.translateFree((float)dy * 2f, 2);
-            Camera.addSpeed(0.01f * (float)dy);
+            camera.addSpeed(0.01f * (float)dy);
         });
 
         

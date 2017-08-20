@@ -14,18 +14,38 @@ public class Mesh {
     
     protected Texture texture;
     
+    public int shaderMode = 0;
+    
     private Vector3fc scale = new Vector3f(1, 1, 1), pos = new Vector3f();
     
-    public Mesh(ArrayList<Float> vert, ArrayList<Float> text, ArrayList<Integer> ind, ArrayList<Float> nor){
-        
+    float minx, miny, maxx, maxy;
+    
+    public interface f{float z(float x, float y);}
+    
+    public Mesh(ArrayList<Float> vert,
+                ArrayList<Float> text,
+                ArrayList<Integer> ind,
+                ArrayList<Float> nor){
         vertArray = new float[vert.size()];
         texArray = new float[text.size()];
         indexArray = new int[ind.size()];
         normalArray = new float[nor.size()];
         
+        minx = maxx = vert.get(0);
+        miny = maxy = vert.get(1);
+        
         //convert to native arrays
-        for(int i = 0; i < vert.size(); i++)
+        //(using .toArray would return Float objects, instead of float natives)
+        for(int i = 0; i < vert.size(); i++){
             vertArray[i] = vert.get(i);
+            if(i % 3 == 0){
+                minx = Math.min(minx, vertArray[i]);
+                maxx = Math.max(maxx, vertArray[i]);
+            }else if(i % 3 == 1){
+                miny = Math.min(miny, vertArray[i]);
+                maxy = Math.max(maxy, vertArray[i]);
+            }
+        }
         for(int i = 0; i < text.size(); i++)
             texArray[i] = text.get(i);
         for(int i = 0; i < ind.size(); i++)
@@ -33,6 +53,7 @@ public class Mesh {
         for(int i = 0; i < nor.size(); i++)
             normalArray[i] = nor.get(i);
     }
+    
     public Mesh(float[] vert, float[] text, int[] ind, float[] nor){
         vertArray = vert;
         texArray = text;
@@ -60,7 +81,13 @@ public class Mesh {
     public boolean isTextured(){
         return texture != null;
     }
+    public void setTexture(String texture){
+        this.texture = new Texture(texture);
+    }
     
+    public Vector3fc getPos(){
+        return pos;
+    }
     public void setPos(Vector3fc v){
         pos = new Vector3f(v);
     }
@@ -79,9 +106,6 @@ public class Mesh {
     }
     public void setScale(Vector3fc s){
         scale = s;
-    }
-    public Vector3fc getPos(){
-        return pos;
     }
     public Vector3fc getScale(){
         return scale;

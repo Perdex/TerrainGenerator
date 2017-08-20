@@ -6,29 +6,28 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 import org.lwjgl.opengl.*;
-
+import org.lwjgl.glfw.GLFWErrorCallback;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 
-import org.lwjgl.glfw.GLFWErrorCallback;
-
 public class LWJGLTerrain{
 
-    static final int WIDTH = 1800, HEIGHT = 1000;
+    static final int WIDTH = 1800, HEIGHT = 900;
 
     private static long win;
 
-    private static Model m[];
+    private static Model[] m;
+    private static Terrain terrain;
 
     static Camera camera;
     static Shader shader;
     private static UI2D ui;
     
-    static Vector3fc lightPos = new Vector3f(10, 20, 5);
+    static Vector3fc lightPos = new Vector3f(500, 200, 200);
 
     private static int frames = 0;
-
+    
     public static void main(String[] args){
         
         try{
@@ -37,6 +36,7 @@ public class LWJGLTerrain{
             double lastTime = getTime();
 
             int lastframes = 0;
+            float t = 0;
 
             while(!glfwWindowShouldClose(win)){
 
@@ -44,14 +44,15 @@ public class LWJGLTerrain{
                 if(getTime() - lastTime >= 1.0){
                     lastTime = getTime();
                     System.out.println("FPS: " + (frames - lastframes));
-                    System.out.println("Cam pos: (" + (int)camera.getPosition().x +
-                                                ", " + (int)camera.getPosition().y +
-                                                ", " + (int)camera.getPosition().z + ")");
+                    System.out.println("Cam pos: (" + (int)camera.getPosition().x() +
+                                                ", " + (int)camera.getPosition().y() +
+                                                ", " + (int)camera.getPosition().z() + ")");
                     lastframes = frames;
                 }
                 frames++;
 
-                updateDisplay();
+                updateDisplay(t);
+                t += 0.025;
                 //sim.updateDrawPositions();
             }
             closeDisplay();
@@ -66,7 +67,7 @@ public class LWJGLTerrain{
         return (double) System.nanoTime() / 1e9;
     }
 
-    public static void updateDisplay(){
+    public static void updateDisplay(float t){
 
         glClear(GL_COLOR_BUFFER_BIT);//init screen to bg color
 
@@ -75,9 +76,10 @@ public class LWJGLTerrain{
         Actions.applyEvents(win);
 
         for(Model m1 : m)
-            m1.render(shader, camera.getPosition(), lightPos);
+            m1.render(t, shader, camera.getPosition(), lightPos);
         
-
+        terrain.render(t, shader, camera.getPosition(), lightPos);
+        
         glDisable(GL_DEPTH_TEST);
         
         ui.render(shader);
@@ -119,31 +121,38 @@ public class LWJGLTerrain{
         GL.createCapabilities();
 
         glEnable(GL_TEXTURE_2D);
-
+        
         glEnable(GL_DEPTH_TEST);
         glDepthMask(true);
         glDepthFunc(GL_LEQUAL);
-//        glFrontFace(GL_CW);
-//        glEnable(GL_CULL_FACE);
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        glFrontFace(GL_CW);
+        glEnable(GL_CULL_FACE);
         glDisable(GL_DITHER);
 
         //BG color
-        glClearColor(0.4f, 0.4f, 1, 1);
+        //glClearColor(0.6f, 0.6f, 1, 1);
+        glClearColor(0.9f, 0.9f, 0.9f, 1);
 
-        m = new Model[4];
-        m[0] = Model.createFromMesh(meshes.Fxy.terrainTruePerlin(), 0);
-        m[1] = Model.createFromMesh(meshes.Ball.makeBall(20, new Vector3f(0, 0, -50), 100, null), 1);
-        m[2] = Model.createFromMesh(meshes.Ball.makeBall(2, lightPos, 20, null), 2);
-        m[3] = Model.createFromMesh(meshes.Ball.makeBall(2, lightPos.add(new Vector3f(0, 0, -50), new Vector3f()), 20, null), 2);
+        m = new Model[2];
+        m[0] = Model.createFromMesh(meshes.Ball.makeBall(20, lightPos, 30, "sun.jpg"));
+        m[1] = Model.createFromMesh(meshes.Fxy.plane(260, 50000, 1000, false, 4));
+        //m[1] = Model.createFromMesh(meshes.Ball.makeBall(20, new Vector3f(0, 0, -50), 100, null), 1);
 
         shader = new Shader("shader");
 
-        camera = Camera.makeConstrainedCamera();
+        camera = Camera.makeTerrainCamera();
+
+        terrain = new Terrain();
+        camera.setTerrain(terrain);
         
-        Actions.addCallbacks(shader, win);
+        Actions.addCallbacks(shader, win, camera);
         
         ui = new UI2D(WIDTH, HEIGHT);
-
+        
     }
 
     public static Mesh getMesh(int i){
@@ -151,17 +160,22 @@ public class LWJGLTerrain{
     }
     
     public static void refreshMeshF(){
-        m[0] = Model.createFromMesh(meshes.Fxy.terrainFractal(), 0);
+        refreshTerrain(meshes.Fxy.terrainFractal());
     }
     public static void refreshMeshP(){
-        m[0] = Model.createFromMesh(meshes.Fxy.terrainPerlin(), 0);
+        refreshTerrain(meshes.Fxy.terrainPerlin());
     }
     public static void refreshMeshP2(){
-        m[0] = Model.createFromMesh(meshes.Fxy.terrainTruePerlin(), 0);
+        //refreshTerrain(meshes.Fxy.terrainTruePerlin(permutation));
     }
     public static void refreshMeshS(){
-        m[0] = Model.createFromMesh(meshes.Fxy.terrainSine(), 0);
+        refreshTerrain(meshes.Fxy.terrainSine());
     }
+    private static void refreshTerrain(Mesh mesh){
+//        camera.setTerrain(mesh);
+//        m[0] = Model.createFromMesh(mesh);
+    }
+    
 
     private static void closeDisplay(){
 

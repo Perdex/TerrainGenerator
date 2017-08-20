@@ -3,6 +3,7 @@ package lwjglterrain;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 import org.lwjgl.BufferUtils;
@@ -28,7 +29,6 @@ public class Model {
         glBindBuffer(GL_ARRAY_BUFFER, t_id);
         glBufferData(GL_ARRAY_BUFFER, createBuffer(tex_coords), GL_STATIC_DRAW);
         
-        
         n_id = glGenBuffers();
         //bind
         glBindBuffer(GL_ARRAY_BUFFER, n_id);
@@ -36,22 +36,18 @@ public class Model {
         
         i_id = glGenBuffers();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, i_id);
-        IntBuffer buffer = BufferUtils.createIntBuffer(indices.length);
-        
-        buffer.put(indices);
-        buffer.flip();
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, buffer, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, createBuffer(indices), GL_STATIC_DRAW);
         
         //unbind
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
     
-    public static Model createFromMesh(meshes.Mesh m, int i){
+    public static Model createFromMesh(meshes.Mesh m){
         Model mod = new Model(m.getVertArray(), m.getTextArray(), m.getIndexArray(), m.getNormalArray());
         mod.mesh = m;
         if(m.isTextured()){
-            m.getTexture().bind(i);
+            m.getTexture().bind(0);
         }
         return mod;
     }
@@ -60,22 +56,26 @@ public class Model {
         return mesh;
     }
 
-    public void render(Shader s, Vector3fc camPos, Vector3fc lightPos){
+    public void render(float time, Shader s, Vector3fc camPos, Vector3fc lightPos){
         
         Matrix4f proj = LWJGLTerrain.camera.getProjection();
         
         if(mesh != null){
-            proj = proj.mul(mesh.getViewMatrix());
+            proj = proj.mul(mesh.getViewMatrix(), new Matrix4f());
             if(mesh.isTextured()){
                 mesh.getTexture().bind();
-                s.setUniform("shaderMode", 1);
-            }else
                 s.setUniform("shaderMode", 0);
+                s.setUniform("textureSampler", 0);
+            }else
+                s.setUniform("shaderMode", mesh.shaderMode);
             
             Vector3fc pos = mesh.getPos();
-            //0.2 is the weirdest bug I've ever encountered: for some reason the meshes are scale by 5!
-            s.setUniform("LightPosition", (lightPos.x() - pos.x()), -(lightPos.y() - pos.y()), (lightPos.z() - pos.z()));
-            s.setUniform("CameraPosition", (camPos.x() - pos.x()), -(camPos.y() - pos.y()), (camPos.z() - pos.z()));
+            Vector3fc relLightPos = lightPos.sub(pos, new Vector3f());
+            Vector3fc relCamPos = camPos.sub(pos, new Vector3f());
+            
+            s.setUniform("LightPosition", relLightPos);
+            s.setUniform("CameraPosition", relCamPos);
+            s.setUniform("Time", time);
         }
         
         LWJGLTerrain.shader.setUniform("projection", proj);
@@ -83,7 +83,6 @@ public class Model {
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
-        
         
         //bind vertices
         glBindBuffer(GL_ARRAY_BUFFER, v_id);
@@ -101,7 +100,6 @@ public class Model {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, i_id);
         glDrawElements(GL_TRIANGLES, draw_count, GL_UNSIGNED_INT, 0);
         
-        
         //unbind
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -117,5 +115,11 @@ public class Model {
         buff.put(data);
         buff.flip();
         return buff;
+    }
+    private IntBuffer createBuffer(int[] data){
+        IntBuffer buffer = BufferUtils.createIntBuffer(data.length);
+        buffer.put(data);
+        buffer.flip();
+        return buffer;
     }
 }

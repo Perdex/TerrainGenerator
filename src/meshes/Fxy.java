@@ -8,15 +8,21 @@ import org.joml.Vector3d;
 public class Fxy{
 
     public static Mesh asdf(){
-        return build(25, 0.1f, (float x, float y)
+        return build(25, 0.1f, null, true, (float x, float y)
                 -> 5 * x * y / (Math.abs(x) + Math.abs(y)) / (Math.abs(x) + Math.abs(y) + 1)
         );
     }
 
     public static Mesh asdf2(){
-        return build(25, 0.1f, (float x, float y)
-                -> -Math.cos((x * x + y * y) / 10) / (0.25 + (x * x + y * y) / 30)// + y*y / 30 + x*x / 30
+        return build(25, 0.1f, null, true, (float x, float y)
+                -> -(float)(Math.cos((x * x + y * y) / 10) / (0.25 + (x * x + y * y) / 30))// + y*y / 30 + x*x / 30
         );
+    }
+    
+    public static Mesh plane(float z, float size, float increment, boolean upfacing, int shaderMode){
+        Mesh mesh = build(size, increment, null, upfacing, (float x, float y) -> z);
+        mesh.shaderMode = shaderMode;
+        return mesh;
     }
     
     public static Mesh terrainPerlin(){
@@ -26,8 +32,8 @@ public class Fxy{
         seed = System.nanoTime();
         
         float scale = 0.5f;
-        return build(size, scale, (float x, float y) -> {
-            double z = 0.2;
+        return build(size, scale, null, true, (float x, float y) -> {
+            float z = 0.2f;
             
             for(int i = 0; i < 5; i++){
                 z += Math.pow(0.6, i) * perlinNoise(
@@ -45,8 +51,27 @@ public class Fxy{
         
         int size = 50;
         
-        final int tablesize = 2048;
-        final int[] permutation = new int[tablesize];
+        int[] permutation = makePermutation(512);
+        
+        float scale = 0.2f;
+        return build(size, scale, null, true, (float x, float y) -> {
+            float z = 0.2f;
+            
+            for(int i = 0; i < 5; i++){
+                z += Math.pow(0.5, i) * (truePerlin(
+                        0.1 * x * (1 << i) + size + i * 52314,
+                        0.1 * y * (1 << i) + size + i * 52314,
+                        permutation) - 0.5);
+            }
+            
+            z = z * 3 + 4 * z * z * z / (1 + z * z * z * z);
+            
+            return z;
+        });
+    }
+    
+    private static int[] makePermutation(int tablesize){
+        int[] permutation = new int[tablesize];
         
         //Make the permutation table
         for(int i = 0; i < tablesize / 2; i++){
@@ -63,25 +88,8 @@ public class Fxy{
         for(int i = tablesize / 2; i < tablesize; i++){
             permutation[i] = permutation[i % (tablesize / 2)];
         }
-        
-        float scale = 0.5f;
-        return build(size, scale, (float x, float y) -> {
-            double z = 0.2;
-            
-            for(int i = 0; i < 2; i++){
-                z += Math.pow(0.6, i) * (truePerlin(
-                        0.1 * x * (1 << i) + size + i * 52314,
-                        0.1 * y * (1 << i) + size + i * 52314,
-                        tablesize,
-                        permutation) - 0.5);
-            }
-            
-            z = z * 3 + 4 * z * z * z / (1 + z * z * z * z);
-            
-            return z;
-        });
+        return permutation;
     }
-    
     
     public static double lerp(double a, double b, double x) {
         return a + x * (b - a);
@@ -100,16 +108,16 @@ public class Fxy{
 
         return ((h&1) == 0 ? u : -u)+((h&2) == 0 ? v : -v); // Use the last 2 bits to decide if u and v are positive or negative.  Then return their addition.
     }
-    private static double truePerlin(double x, double y, int tablesize, int[] permutation){
+    public static double truePerlin(double x, double y, int[] permutation){
 
-        int xi = (int)x;			// Calculate the "unit cube" that the point asked will be located in
-        int yi = (int)y;			// The left bound is ( |_x_|,|_y_|,|_z_| ) and the right bound is that
+        int xi = (int)Math.floor(x);			// Calculate the "unit cube" that the point asked will be located in
+        int yi = (int)Math.floor(y);			// The left bound is ( |_x_|,|_y_|,|_z_| ) and the right bound is that
                                                 // plus 1.  Next we calculate the location (from 0.0 to 1.0) in that cube.
         double xf = x-xi;			// We also fade the location to smooth the result.
         double yf = y-yi;
 
-        xi %= tablesize / 2;
-        yi %= tablesize / 2;
+        xi &= permutation.length / 2 - 1;
+        yi &= permutation.length / 2 - 1;
 
         double u = fade(xf);
         double v = fade(yf);
@@ -172,7 +180,7 @@ public class Fxy{
         
         int size = 200;
         
-        final double[][] map = new double[size][size];
+        final float[][] map = new float[size][size];
 
         int iterations = 6;
         for(int i = 0; i < iterations; i++)
@@ -189,12 +197,12 @@ public class Fxy{
 //        }
 
         float scale = 50f / size;
-        return build(scale * (size - 1), scale, (float x, float y) ->
+        return build(scale * (size - 1), scale, null, true, (float x, float y) ->
                 map[(int)Math.min((x / scale) + size / 2, size - 1)][(int)Math.min((y / scale) + size / 2, size - 1)]);
 
     }
 
-    private static void diamondStep(int x, int y, int radius, double[][] map, Random r){
+    private static void diamondStep(int x, int y, int radius, float[][] map, Random r){
         
         double scale = 0.015;
         
@@ -227,7 +235,7 @@ public class Fxy{
         
     }
     
-    private static void addToMap(int x, int y, double dz, double[][] map){
+    private static void addToMap(int x, int y, double dz, float[][] map){
         if(x >= 0 && x < map.length && y >= 0 && y < map.length)
             map[x][y] += dz;
     }
@@ -247,10 +255,10 @@ public class Fxy{
             
         }
 
-        return build(50, 0.3f, (float x, float y) -> {
+        return build(50, 0.3f, null, true, (float x, float y) -> {
 
             double scale = 2;
-            double z = 0;
+            float z = 0;
             for(int j = 0; j < octaves; j++){
 
                 for(int i = 1; i < parts; i++){
@@ -263,11 +271,14 @@ public class Fxy{
         });
     }
 
-    private static Mesh build(float range, float inc, f f){
+    public static Mesh build(float range, float inc, Vector3f offset, boolean up, Mesh.f f){
         ArrayList<Float> vert = new ArrayList();
         ArrayList<Float> text = new ArrayList();
         ArrayList<Integer> ind = new ArrayList();
         ArrayList<Float> nor = new ArrayList();
+        
+        if(offset == null)
+            offset = new Vector3f();
 
         int n = (int) (range / inc) + 1;
 
@@ -277,80 +288,60 @@ public class Fxy{
 
             for(int j = 0; j < n; j++){
 
-                float x = i * inc - range / 2;
-                float y = j * inc - range / 2;
+                float x = i * inc - range / 2 + offset.x();
+                float y = j * inc - range / 2 + offset.y();
+                float z = f.z(x, y) + offset.z();
 
                 //coordinates
-                vert.add(x); //X
-                vert.add(-y); //Y
-                vert.add((float) f.z(x, y));
+                vert.add(x);
+                vert.add(y);
+                vert.add(z);
                 
-                Vector3f n1 = new Vector3f(1, 0, (float)(f.z(x+1, y) - f.z(x, y))).normalize();
-                Vector3f n2 = new Vector3f(0, 1, (float)(f.z(x, y+1) - f.z(x, y))).normalize();
+                Vector3f n1 = new Vector3f(1, 0, (float)(f.z(x+inc, y) - f.z(x-inc, y)));
+                Vector3f n2 = new Vector3f(0, 1, (float)(f.z(x, y+inc) - f.z(x, y-inc)));
 
-                Vector3f normal = n1.cross(n2);
+                Vector3f normal = n1.cross(n2).normalize();
                 
-                nor.add(normal.x);
-                nor.add(normal.y);
-                nor.add(normal.z);
+                if(!up)
+                    normal.negate(normal);
+                
+                nor.add(normal.x());
+                nor.add(normal.y());
+                nor.add(normal.z());
                 
                 //textures
-                text.add((float) (i % 2));
-                text.add((float) (j % 2));
-//                
-//                //connect as triangles
-//                if(i % 2 == 0 && j % 2 == 0){
-                //upper left
+                float texturescale = 0.04f;
+                float textx = i * texturescale;
+                float texty = j * texturescale;
+                text.add(textx);
+                text.add(texty);
+
+                // make triangles
                 if(i > 0 && j > 0){
-                    ind.add(id);
-                    ind.add(id - n - 1);
-                    ind.add(id - 1);
+                    if(!up){
+                        ind.add(id);
+                        ind.add(id - n - 1);
+                        ind.add(id - 1);
+                        
+                        ind.add(id);
+                        ind.add(id - n);
+                        ind.add(id - n - 1);
+                    }else{
+                        ind.add(id);
+                        ind.add(id - 1);
+                        ind.add(id - n - 1);
+                        
+                        ind.add(id);
+                        ind.add(id - n - 1);
+                        ind.add(id - n);
+                    }
                     
-                    ind.add(id);
-                    ind.add(id - n);
-                    ind.add(id - n - 1);
                 }
-//                    //upper right
-//                    if(i > 0 && j < n-1){
-//                        ind.add(id);
-//                        ind.add(id - n);
-//                        ind.add(id - n + 1);
-//                        
-//                        ind.add(id);
-//                        ind.add(id - n + 1);
-//                        ind.add(id + 1);
-//                    }
-//                    //lower right
-//                    if(i < n - 1 && j < n - 1){
-//                        ind.add(id);
-//                        ind.add(id + 1);
-//                        ind.add(id + n + 1);
-//                        
-//                        ind.add(id);
-//                        ind.add(id + n + 1);
-//                        ind.add(id + n);
-//                    }
-//                    //lower left
-//                    if(i < n - 1 && j > 0){
-//                        ind.add(id);
-//                        ind.add(id + n);
-//                        ind.add(id + n - 1);
-//                        
-//                        ind.add(id);
-//                        ind.add(id + n - 1);
-//                        ind.add(id - 1);
-//                    }
-//                    
-//                }
 
                 id++;
             }
         }
-        return new Mesh(vert, text, ind, nor);
-    }
-
-    private interface f{
-
-        double z(float x, float y);
+        Mesh m = new Mesh(vert, text, ind, nor);
+        return m;
     }
 }

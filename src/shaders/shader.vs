@@ -8,9 +8,13 @@ varying vec3 Position;
 varying vec2 Texture;
 
 varying float LightStrength;
+varying float ReflectionStrength;
+varying float CamDist;
 
 uniform vec3 LightPosition;
 uniform vec3 CameraPosition;
+uniform float Time;
+uniform int shaderMode;
 
 uniform mat4 projection;
 
@@ -18,22 +22,39 @@ void main(){
 
     Position = vertices;
     Texture = textures;
+    
+    Texture.x -= int(Texture.x * 0.5) * 2;
+    Texture.y -= int(Texture.y * 0.5) * 2;
+    
+    if(Texture.x > 1)
+        Texture.x = 2 - Texture.x;
+    if(Texture.y > 1)
+        Texture.y = 2 - Texture.y;
 
     vec3 lightRel = normalize(LightPosition - Position);
     vec3 camRel = normalize(CameraPosition - Position);
 
     float light = clamp(dot(lightRel, normals), 0, 1) + 0.2;
 
-    vec3 reflected = normalize(-lightRel + 2 * dot(lightRel, normals) * normals);
-    float reflection = clamp(dot(camRel, reflected) - 0.9, 0, 1) * 15;
+    vec3 refNorm = normals;
+
+    if(shaderMode == 5){
+        //water
+        refNorm.x += 0.1 * sin(Time + 50 * Position.x);
+        refNorm.y += 0.1 * sin(Time + 200 * Position.y + 20 * Position.x);
+        refNorm = normalize(refNorm);
+    }
+
+    vec3 reflected = normalize(-lightRel + 1.7 * dot(lightRel, refNorm) * refNorm);
+    float reflection = clamp(dot(camRel, reflected) - 0.95, 0, 1) * 20;
     reflection *= reflection;
+    ReflectionStrength = 0;
 
-    LightStrength = 0;//light;
-    //if(dot(camRel, normals) > 0)
-    //    LightStrength += reflection;
+    LightStrength = light;
+    if(dot(lightRel, refNorm) > 0)
+        ReflectionStrength = reflection;
 
-    float camDist = length(CameraPosition - Position);
-    LightStrength += clamp(1 - 0.02 * camDist, -0.5, 1);
+    CamDist = length(CameraPosition - Position);
 
     gl_FrontColor = gl_Color;
     gl_Position = projection * vec4(Position, 1);

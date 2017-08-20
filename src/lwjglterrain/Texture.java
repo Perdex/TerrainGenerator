@@ -4,8 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import javax.imageio.ImageIO;
 import javax.swing.JOptionPane;
@@ -25,6 +23,9 @@ public class Texture {
         
         try{
             bi = ImageIO.read(new BufferedInputStream(getClass().getResourceAsStream("/" + filename)));
+            if(bi == null){
+                throw new IOException("Image not found!");
+            }
             width = bi.getWidth();
             height = bi.getHeight();
             
@@ -55,18 +56,20 @@ public class Texture {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         }catch(IOException e){
             if(!debugShown){
-                JOptionPane.showMessageDialog(null, e.getMessage() + "\ncurrent folder: " + new File("").getAbsolutePath() +
-                        "\n" + getClass().getResource("/" + filename).getPath());
+                JOptionPane.showMessageDialog(null, e.getMessage() + "\nfilename: " + filename
+                        + "\ncurrent folder: " + new File("").getAbsolutePath()
+                        + "\n" + getClass().getResource("/sky.jpg").getPath());
                 debugShown = true;
             }
-                e.printStackTrace(System.err);
+            System.err.println("Texture, line 65:");
+            e.printStackTrace(System.err);
         }
     }
     
     private static boolean debugShown = false;
     
     public void bind(int sampler){
-        this.sampler = 0;
+        this.sampler = sampler;
         bind();
     }
     public void bind(){

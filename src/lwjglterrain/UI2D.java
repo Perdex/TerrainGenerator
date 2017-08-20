@@ -32,7 +32,7 @@ public class UI2D{
         
         s.setUniform("projection", LWJGLTerrain.camera.get2DProjection());
         
-        drawRect(width - 30, 15, 14, (height - 30d) * Camera.getDrawSpeed(), 7, Color.green);
+        drawRect(width - 30, 15, 14, (height - 30d) * LWJGLTerrain.camera.getDrawSpeed(), 7, Color.green);
         //drawLine(0.4825, -0.48, 0.4825, -0.48 + 0.965 * Camera.getDrawSpeed(), 7, Color.black);
         drawRect(width - 31, 15, 16, height - 30, 1, Color.green.darker().darker());
         

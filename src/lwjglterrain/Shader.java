@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.FloatBuffer;
 import org.joml.Matrix4f;
+import org.joml.Vector3fc;
 import org.lwjgl.BufferUtils;
 import static org.lwjgl.opengl.GL20.*;
 
@@ -14,6 +15,7 @@ public class Shader {
     public Shader(String filename){
         program = glCreateProgram();
         
+        //read shader codes and compile them
         vs = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vs, readFile(filename + ".vs"));
         glCompileShader(vs);
@@ -22,7 +24,6 @@ public class Shader {
             System.err.println(glGetShaderInfoLog(vs));
             System.exit(1);
         }
-        
         
         fs = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fs, readFile(filename + ".fs"));
@@ -33,13 +34,13 @@ public class Shader {
             System.exit(1);
         }
         
-        
         glAttachShader(program, vs);
         glAttachShader(program, fs);
         
         glBindAttribLocation(program, 0, "vertices");
         glBindAttribLocation(program, 1, "textures");
         glBindAttribLocation(program, 2, "normals");
+        
         
         glLinkProgram(program);
         if(glGetProgrami(program, GL_LINK_STATUS) != 1){
@@ -73,7 +74,10 @@ public class Shader {
         int location = glGetUniformLocation(program, name);
         
         if(location != -1)
-            glUniform3f(location, i, -j, k);//mirror y!
+            glUniform3f(location, i, j, k);
+    }
+    public void setUniform(String name, Vector3fc value){
+        setUniform(name, value.x(), value.y(), value.z());
     }
     public void setUniform(String name, Matrix4f value){
         int location = glGetUniformLocation(program, name);

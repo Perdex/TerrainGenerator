@@ -1,95 +1,115 @@
 #version 120
 
-uniform sampler2D sampler;
+uniform sampler2D textureSampler;
+uniform sampler2D beachSampler;
+uniform sampler2D greenSampler;
+uniform sampler2D snowSampler;
 
 varying vec3 Position;
 varying vec2 Texture;
 
 varying float LightStrength;
+varying float ReflectionStrength;
+varying float CamDist;
+
+uniform float Time;
 
 uniform int shaderMode;
 
-
 void main(){
-    if(shaderMode == 1){
-            gl_FragColor = texture2D(sampler, Texture);
-            return;
-    }
     if(shaderMode == 3){
-            gl_FragColor = gl_Color;
-            return;
+        //2d ui
+        gl_FragColor = gl_Color;
+        return;
     }
-
+    
     float r;
     float g;
     float b;
-
-    float wireframeScale = 0.02;
+    float a = 1;
+    
+    float reflection = ReflectionStrength;
+    
+    float fog = clamp(CamDist * 0.02 - 0.5, 0, 1);
+    
     float k = 1;
-	
-    if(Position.z <= 0){
-        //water
-        r = 0;
-        g = 0.1 / (1 - Position.z * 2);
-        b = 1 / (1 - Position.z * 2);
-        wireframeScale = 0;
-    }else if(Position.z < 0.15){
-        //beaches
-        r = 0.8;
-        g = 0.8;
-        b = 0.3;
-    }else{
-        //green areas
-        g = 0.5;
-
-        //add brown areas
+    
+    if(shaderMode == 0){
+        //plain texture
+        vec4 color = texture2D(textureSampler, Texture);
+        r = color.x;
+        g = color.y;
+        b = color.z;
+        a = color.w;
+        k = 4;
+        fog = 0;
+    }
+    
+    if(shaderMode == 1){
+        //textures
+        float greenweight = 0;
+        float beachweight = 0;
+        float snowweight = 0;
+        
+        if(Position.z > 2.5){
+            snowweight = (Position.z - 2.5) * 4;
+            snowweight = min(1, snowweight);
+        }
+        
+        if(Position.z < 0.15){
+            beachweight = 1 - 20 * max(0, Position.z - 0.1);
+        }
+        //greens
         r = sin(Position.x / 4 + 0.8 * Position.z + atan(Position.x) + 5) * Position.z +
             sin(Position.y / 4 - 1.1 * Position.z - 0.2 * atan(Position.y) + 5) + 0.1 * (Position.z - 0.15);
 
-        r = clamp(r, -0.5, 0.5);
-        b = 0.1;
+        r = clamp(r, -0.2, 0.2);
 
-        if(r > 0)
-            g = max(0.5 - r * 0.5, r * 0.6);
-        else
-            r = 0.1;
-
-        if(Position.z > 1.5){
-            //add stone
-            float w = sin(Position.x / 3 + 0.7 * Position.z + atan(Position.x) + 2) +
-                sin(Position.y / 2.2 - 1.1 * Position.z - 0.25 * atan(Position.y) + 3) + (Position.z - 2);
-
-            
-            if(w > 0)
-                r = g = b = 0.3; 
-
+        if(r > 0){
+            greenweight = r * 5;
+            greenweight = min(1 - snowweight - beachweight, greenweight);
         }
-
-        if(Position.z > 2.5){
-            //white tops
-            float w = sin(Position.x / 2 + 0.7 * Position.z + atan(Position.x) + 1) +
-                sin(Position.y / 2 - 1.3 * Position.z - 0.2 * atan(Position.y) + 1) + (Position.z - 3);
-
-
-            if(w > 0)
-                r = g = b = 0.9;
-            
-        }else if(Position.z < 0.18){
-            //gradient by the beach
-
-            float w = (Position.z - 0.15) / 0.03;
-
-            //beach color is (0.8, 0.8, 0.3)
-
-            r = r * w + (1 - w) * 0.8;
-            g = g * w + (1 - w) * 0.8;
-            b = b * w + (1 - w) * 0.3;            
-
-        }
+        
+        float groundweight = 1 - greenweight - beachweight - snowweight;
+        vec4 color = texture2D(textureSampler, Texture) * groundweight;
+        
+        color += texture2D(greenSampler, Texture) * greenweight;
+        color += texture2D(beachSampler, Texture) * beachweight;
+        color += texture2D(snowSampler, Texture) * snowweight;
+        
+        reflection *= 0.8 * snowweight + 0.6 * beachweight + 0.2 * greenweight + 0.2 * groundweight;
+        
+        r = color.x;
+        g = color.y;
+        b = color.z;
+        a = color.w;
     }
 
 
+    //float wireframeScale = 0.02;
+    
+    if(shaderMode == 5){
+        //water
+        r = 0.3;
+        g = 0.5;
+        b = 0.8;
+        a = 0.4 + reflection;
+        k += reflection * 10;
+    }
 
+    if(shaderMode == 4){
+        //sky
+        r = 0.3;
+        g = 0.3;
+        b = 0.8;
+        fog = min(1, sqrt(CamDist) * 0.02);
+    }
+    if(shaderMode < 4 && shaderMode != 0){
+        if(Position.z < 0)
+            k *= LightStrength;
+        else
+            k *= LightStrength + reflection;
+    }
     /*if(Texture.x < wireframeScale)
         k *= Texture.x / wireframeScale;
     if(Texture.y < wireframeScale)
@@ -104,11 +124,17 @@ void main(){
         k *= 0.25;
     */
 
-    k *= LightStrength;
-
+    
     r = clamp(r * k, 0, 1);
     g = clamp(g * k, 0, 1);
     b = clamp(b * k, 0, 1);
+    
+    a = clamp(a, 0, 1);
+    
+    //add fog
+    r = r * (1 - fog) + fog * 0.9;
+    g = g * (1 - fog) + fog * 0.9;
+    b = b * (1 - fog) + fog * 0.9;
 
-    gl_FragColor = vec4(r, g, b, 1);
+    gl_FragColor = vec4(r, g, b, a);
 }
